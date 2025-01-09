@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="index, follow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ruslan Peshchuk">
+    <meta name="keywords" content="MongoDB, database design, data modeling, embed vs reference, document database, NoSQL">
+    <meta name="description" content="Interactive guide to help choose between embedded and referenced documents in MongoDB data modeling">
+    <meta property="og:description" content="Interactive guide to help choose between embedded and referenced documents in MongoDB data modeling">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="MongoDB: Embed vs Reference Decision Guide">
+    <title>MongoDB: Embed vs Reference Decision Guide</title>
+    <style>
+        :root {
+            --color-spring-green: #00ED64;
+            --color-spring-green-dark: #00C853;
+            --color-slate: #0C2B3C;
+            --color-dark: #001E2B;
+            --color-grey-100: #F9FBFA;
+            --color-grey-200: #E8EDEB;
+            --color-grey-600: #889397;
+            --radius-sm: 6px;
+            --radius-lg: 16px;
+            --space-xs: 0.5rem;
+            --space-sm: 1rem;
+            --space-md: 1.5rem;
+            --space-lg: 2rem;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --transition: 200ms ease-out;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: var(--space-md);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+            color: var(--color-dark);
+        }
+
+        .guide {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .guide__header {
+            background: linear-gradient(to right, #f8f9fa, white);
+            padding: var(--space-sm);
+            border-bottom: 1px solid var(--color-grey-200);
+            margin: calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            gap: var(--space-sm);
+        }
+
+        .guide__nav {
+            display: flex;
+            gap: var(--space-xs);
+        }
+
+        .guide__actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .button {
+            padding: var(--space-xs) var(--space-sm);
+            border: 1px solid var(--color-grey-200);
+            background: white;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            font: inherit;
+            color: inherit;
+        }
+
+        .button:hover:not(:disabled) {
+            background: var(--color-grey-100);
+            transform: translateY(-1px);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .scores {
+            display: flex;
+            gap: var(--space-sm);
+            font-size: 0.9rem;
+            padding: var(--space-xs) var(--space-sm);
+            background: #f8f9fa;
+            border-radius: var(--radius-sm);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+            font-weight: 500;
+        }
+
+        .score__value {
+            font-weight: 600;
+        }
+
+        .score--embed .score__value { color: var(--color-spring-green); }
+        .score--reference .score__value { color: var(--color-slate); }
+
+        .guide__progress {
+            text-align: center;
+            margin-bottom: var(--space-lg);
+            color: var(--color-grey-600);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .guide__title {
+            color: var(--color-slate);
+            margin: 0 0 var(--space-md);
+            font-size: 1.8rem;
+            font-weight: 500;
+        }
+
+        .guide__question {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: var(--space-lg);
+            color: var(--color-dark);
+        }
+
+        .guide__options {
+            display: flex;
+            gap: var(--space-sm);
+            justify-content: center;
+        }
+
+        .option {
+            min-width: 120px;
+            padding: var(--space-sm) var(--space-lg);
+            font-size: 1rem;
+            font-weight: 500;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            transform: translateY(0);
+        }
+
+        .option:hover {
+            transform: translateY(-2px);
+        }
+
+        .option--yes {
+            background-color: var(--color-spring-green);
+            color: var(--color-dark);
+        }
+
+        .option--no {
+            background-color: var(--color-slate);
+            color: white;
+        }
+
+        .option.is-selected.option--yes {
+            background-color: var(--color-spring-green-dark);
+            box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-spring-green);
+        }
+
+        .option.is-selected.option--no {
+            background-color: var(--color-dark);
+            box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-slate);
+        }
+
+        .guide__result {
+            font-size: 2.5rem;
+            font-weight: 600;
+            text-align: center;
+            color: var(--color-spring-green);
+            margin-top: var(--space-lg);
+        }
+
+        .footer {
+            position: fixed;
+            bottom: var(--space-xs);
+            width: 100%;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--color-grey-600);
+            padding: var(--space-xs);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-xs);
+        }
+
+        .footer__logo {
+            width: 30px;
+            height: 30px;
+            vertical-align: middle;
+            transition: transform var(--transition);
+        }
+
+        .footer__link:hover .footer__logo {
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: var(--space-xs);
+            }
+
+            .guide {
+                padding: var(--space-sm);
+            }
+
+            .guide__header {
+                flex-direction: column;
+                gap: var(--space-xs);
+                align-items: stretch;
+                margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) var(--space-sm);
+            }
+
+            .guide__nav, .guide__actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .scores {
+                flex: 1;
+                font-size: 0.8rem;
+            }
+
+            .guide__options {
+                flex-direction: column;
+            }
+
+            .option {
+                width: 100%;
+                padding: var(--space-sm);
+            }
+
+            .guide__title {
+                font-size: 1.4rem;
+            }
+
+            .guide__result {
+                font-size: 2rem;
+            }
+
+            .footer {
+                position: static;
+                margin-top: var(--space-lg);
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="guide">
+    <div id="screen"></div>
+</main>
+<footer class="footer">
+    Made with ❤️ in <a href="https://www.offenbach.de" target="_blank" rel="noopener noreferrer"><img
+        src="offenbach-logo.jpg" alt="Offenbach am Main Logo" class="footer__logo" width="30" height="30"></a>
+</footer>
+
+<script>
+    const questions = [
+        { guideline: "Simplicity", question: "Would keeping the pieces of information together lead to a simpler data model and code?", embedOnYes: true },
+        { guideline: "Go Together", question: "Do the pieces of information have a \"has-a,\" \"contains,\" or similar relationship?", embedOnYes: true },
+        { guideline: "Query Atomicity", question: "Does the application query the pieces of information together?", embedOnYes: true },
+        { guideline: "Update Complexity", question: "Are the pieces of information updated together?", embedOnYes: true },
+        { guideline: "Archival", question: "Should the pieces of information be archived at the same time?", embedOnYes: true },
+        { guideline: "Cardinality", question: "Is there a high cardinality (current or growing) in the child side of the relationship?", embedOnYes: false },
+        { guideline: "Data Duplication", question: "Would data duplication be too complicated to manage and undesired?", embedOnYes: false },
+        { guideline: "Document Size", question: "Would the combined size of the pieces of information take too much memory or transfer bandwidth for the application?", embedOnYes: false },
+        { guideline: "Document Growth", question: "Would the embedded piece grow without bound?", embedOnYes: false },
+        { guideline: "Workload", question: "Are the pieces of information written at different times in a write-heavy workload?", embedOnYes: false },
+        { guideline: "Individuality", question: "For the children side of the relationship, can the pieces exist by themselves without a parent?", embedOnYes: false }
+    ];
+
+    let currentScreen = 0;
+    let embedScore = 0;
+    let referenceScore = 0;
+    let answers = new Array(questions.length).fill(null);
+
+    window.handleAnswer = function(isYes) {
+        const currentAnswer = answers[currentScreen];
+        answers[currentScreen] = isYes;
+        calculateScores();
+        if (currentScreen < questions.length - 1) {
+            if (currentAnswer === null) {
+                currentScreen++;
+            }
+        } else {
+            currentScreen = questions.length;
+        }
+        renderScreen();
+    };
+
+    function calculateScores() {
+        embedScore = 0;
+        referenceScore = 0;
+        answers.forEach((answer, index) => {
+            if (answer === null) {
+                return;
+            }
+            const question = questions[index];
+            if (answer === question.embedOnYes) {
+                embedScore++;
+            } else {
+                referenceScore++;
+            }
+        });
+    }
+
+    window.navigateBack = function() {
+        if (currentScreen > 0) {
+            currentScreen--;
+            renderScreen();
+        }
+    };
+
+    window.navigateForward = function() {
+        if (currentScreen < questions.length && answers[currentScreen] !== null) {
+            currentScreen++;
+            renderScreen();
+        }
+    };
+
+    window.resetGuide = function() {
+        currentScreen = 0;
+        embedScore = 0;
+        referenceScore = 0;
+        answers = new Array(questions.length).fill(null);
+        renderScreen();
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft') {
+            navigateBack();
+        }
+        if (e.key === 'ArrowRight' && answers[currentScreen] !== null) {
+            navigateForward();
+        }
+        if (currentScreen < questions.length) {
+            if (e.key === 'y' || e.key === 'Y') {
+                handleAnswer(true);
+            }
+            if (e.key === 'n' || e.key === 'N') {
+                handleAnswer(false);
+            }
+        }
+    });
+
+    function renderScreen() {
+        const screen = document.getElementById('screen');
+
+        if (currentScreen < questions.length) {
+            const question = questions[currentScreen];
+            const currentAnswer = answers[currentScreen];
+
+            screen.innerHTML = `
+                    <div class="guide__header">
+                        <div class="guide__actions">
+                            <div class="scores">
+                                <span class="score score--embed">Embed: <span class="score__value">${embedScore}</span></span>
+                                <span class="score score--reference">Reference: <span class="score__value">${referenceScore}</span></span>
+                            </div>
+                            <button class="button" onclick="resetGuide()">Reset</button>
+                        </div>
+                        <div class="guide__nav">
+                            <button class="button" onclick="navigateBack()" ${currentScreen === 0 ? 'disabled' : ''}>Back</button>
+                            <button class="button" onclick="navigateForward()" ${answers[currentScreen] === null ? 'disabled' : ''}>Forward</button>
+                        </div>
+                    </div>
+                    <div class="guide__progress">Guideline ${currentScreen + 1} of ${questions.length}</div>
+                    <h2 class="guide__title">${question.guideline}</h2>
+                    <div class="guide__question">${question.question}</div>
+                    <div class="guide__options">
+                        <button class="option option--yes ${currentAnswer === true ? 'is-selected' : ''}" onclick="handleAnswer(true)">YES</button>
+                        <button class="option option--no ${currentAnswer === false ? 'is-selected' : ''}" onclick="handleAnswer(false)">NO</button>
+                    </div>
+                `;
+        } else {
+            screen.innerHTML = `
+                    <div class="guide__header">
+                        <div class="guide__actions">
+                            <div class="scores">
+                                <span class="score score--embed">Embed: <span class="score__value">${embedScore}</span></span>
+                                <span class="score score--reference">Reference: <span class="score__value">${referenceScore}</span></span>
+                            </div>
+                            <button class="button" onclick="resetGuide()">Reset</button>
+                        </div>
+                        <div class="guide__nav">
+                            <button class="button" onclick="navigateBack()">Back</button>
+                            <button class="button" disabled>Forward</button>
+                        </div>
+                    </div>
+                    <div class="guide__result">${embedScore > referenceScore ? 'Embed' : 'Reference'}</div>
+                `;
+        }
+    }
+
+    renderScreen();
+</script>
+</body>
+</html>
